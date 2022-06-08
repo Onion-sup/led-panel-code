@@ -3,6 +3,7 @@ import adafruit_display_text.label
 from adafruit_bitmap_font import bitmap_font
 import adafruit_requests as requests
 from secrets import secrets
+import microcontroller
 
 BLACK = 'black'
 PENDING = "pending"
@@ -31,7 +32,7 @@ class PipelineStatusWatcher:
         self.cnt = 0
         self.prev_fetch_update_counter = -1
         # Initialize a requests object with a socket and esp32spi interface
-        self.fetch_url = "https://"+ secrets['led_panel_service_host'] + "/api/gitlab-pipeline"
+        self.fetch_url = secrets['led_panel_service_host'] + "/api/gitlab-pipeline"
 
         # JSON_GET_URL = "http://httpbin.org/get"
 
@@ -82,6 +83,7 @@ class PipelineStatusWatcher:
         y = 15
         width = 64
         height = 32-y-7
+        self.display_width = 64
         self.jobs_status_tile_grid = JobsStatusTileGrid(x, y, width, height, palette)
 
         # Put each line of text into a Group, then show that group.
@@ -90,25 +92,39 @@ class PipelineStatusWatcher:
         pipeline_watcher_group.append(self.repository_name_text)
         pipeline_watcher_group.append(self.branch_name_text)
         display_group.append(pipeline_watcher_group)
+    
+    def scroll(self):
+        # text_width = self.repository_name_text.bounding_box[2]
+        # if text_width > self.display_width:
+        #     self.repository_name_text.x = self.repository_name_text.x - 1
+        #     if self.repository_name_text.x < -text_width:
+        #         self.repository_name_text.x = self.display_width
+        # else:
+        #     self.repository_name_text.x = 0
+        # text_width = self.branch_name_text.bounding_box[2]
+        # if text_width > self.display_width:
+        #     self.branch_name_text.x = self.branch_name_text.x - 1
+        #     if self.branch_name_text.x < -text_width:
+        #         self.branch_name_text.x = self.display_width
+        # else:
+        #     self.branch_name_text.x = 0
+        self.jobs_status_tile_grid.scroll()
+
 
     def update(self):
         prev_jobs_lists = self.jobs_lists
         self.cnt += 1
+        self.repository_name_text.text += '...'
         try:
             response = requests.get(self.fetch_url)
             json_data = response.json()
-        except Exception as e:
-            self.repository_name_text.text = str(self.cnt) + ' Unable to fetch'
-            self.branch_name_text.text = str(e)
-            try:
-                response.close()
-            except:
-                pass
-            return
+        except RuntimeError:
+            self.repository_name_text.text = 'Reset'
+            microcontroller.reset()
         print("[update] {} {}".format(response.status_code, json_data))
         response.close()
         self.repository_name_text.text = json_data['repository_name']
-        self.branch_name_text.text = json_data['branch_name']
+        self.branch_name_text.text = json_data['branch_name'] + ' ' + str(self.cnt)
         self.jobs_lists = []
         for stage in json_data['stages'].values():
             jobs = [Job(list(job.values())[0]) for job in stage]
@@ -117,8 +133,9 @@ class PipelineStatusWatcher:
             self.repository_name_text.text = 'server'
             self.branch_name_text.text = 'did not update'
         self.prev_fetch_update_counter = json_data['update_counter']
-
-        self.jobs_status_tile_grid.render(prev_jobs_lists, self.jobs_lists)
+        
+        self.jobs_status_tile_grid.clean_jobs(prev_jobs_lists)
+        self.jobs_status_tile_grid.render(self.jobs_lists)
 
 class JobsStatusTileGrid:
     def __init__(self, x, y, width, height, palette):
@@ -133,7 +150,9 @@ class JobsStatusTileGrid:
         self.job_pellet_height = 1
         self.horiz_space = 2
         self.vert_space = 3
-
+        self.jobs_lists = None
+        self.scroll_x = 0
+        self.scroll_y = 0
 
     def clean_jobs(self, jobs_lists):
         x_shift = self.job_pellet_width + self.horiz_space
@@ -142,20 +161,45 @@ class JobsStatusTileGrid:
             for job_index in range(len(jobs_lists[stage_index])):
                 for x in range(job_index*x_shift, job_index*x_shift + self.job_pellet_width):
                     for y in range(stage_index*y_shift, stage_index*y_shift + self.job_pellet_height):
-                        if x < self.width and y < self.height:
+                        x += self.scroll_x
+                        y += self.scroll_y
+                        if x >=0 and x < self.width and y >=0 and y < self.height:
                             self.bitmap[x, y] = color_index_map[BLACK]
 
 
-    def render(self, prev_jobs_lists, jobs_lists):
-        self.clean_jobs(prev_jobs_lists)
+    def render(self, jobs_lists):
+        self.jobs_lists = jobs_lists
         x_shift = self.job_pellet_width + self.horiz_space
         y_shift = self.job_pellet_height + self.vert_space
         for stage_index in range(len(jobs_lists)):
             for job_index in range(len(jobs_lists[stage_index])):
                 for x in range(job_index*x_shift, job_index*x_shift + self.job_pellet_width):
                     for y in range(stage_index*y_shift, stage_index*y_shift + self.job_pellet_height):
-                        if x < self.width and y < self.height:
+                        x += self.scroll_x
+                        y += self.scroll_y
+                        if x >=0 and x < self.width and y >=0 and y < self.height:
                             self.bitmap[x, y] = color_index_map[jobs_lists[stage_index][job_index].status]
+
+    def scroll(self):
+        if self.jobs_lists == None:
+            return
+        self.clean_jobs(self.jobs_lists)        
+        width_jobs_x = max([(self.job_pellet_width + self.horiz_space) * len(jobs) for jobs in self.jobs_lists])
+        width_jobs_y = (self.job_pellet_height + self.vert_space) * len(self.jobs_lists)
+        if width_jobs_x > self.width:
+            self.scroll_x -= 1
+            if self.scroll_x < -self.width:
+                self.scroll_x = self.width
+        else:
+            self.scroll_x = 0
+        if width_jobs_y > self.height:
+            self.scroll_y -= 1
+            if self.scroll_y < -self.height:
+                self.scroll_y = self.height
+        else:
+            self.scroll_y = 0
+
+        self.render(self.jobs_lists)
 
 class Job:
     def __init__(self, status):

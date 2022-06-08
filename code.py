@@ -70,10 +70,34 @@ pipeline_status_watcher = PipelineStatusWatcher(display_group)
 get_a_message = GetAMessage(display_group)
 display.show(display_group)
 
+elapsed_t = 0
+
+scroll_pipeline_period = 0.5
+scroll_message_period = 0.05
+update_period = 6
+display_refresh_period = 0.01
+
+cnt_scroll_pipeline = 0
+cnt_scroll_message = 0
+cnt_update = 0
+
 while True:
-    start_t = time.time()
-    pipeline_status_watcher.update()
-    get_a_message.update()
-    elapsed_t = time.time() - start_t
-    print("elapsed", elapsed_t)
-    time.sleep(6)
+
+    if cnt_scroll_pipeline >= scroll_pipeline_period/display_refresh_period:
+        pipeline_status_watcher.scroll()
+        cnt_scroll_pipeline = 0
+
+    if cnt_scroll_message >= scroll_message_period/display_refresh_period:
+        get_a_message.scroll_text()
+        cnt_scroll_message = 0
+        
+    if cnt_update >= update_period/display_refresh_period:
+        pipeline_status_watcher.update()
+        get_a_message.update()
+        cnt_update = 0
+
+    cnt_scroll_pipeline += 1
+    cnt_scroll_message += 1
+    cnt_update += 1
+
+    time.sleep(display_refresh_period)
