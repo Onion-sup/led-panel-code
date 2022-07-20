@@ -67,7 +67,7 @@ requests.set_socket(socket, esp)
 display = framebufferio.FramebufferDisplay(matrix)
 display_group = displayio.Group()
 pipeline_status_watcher = PipelineStatusWatcher(display_group)
-get_a_message = GetAMessage(display_group)
+# get_a_message = GetAMessage(display_group)
 display.show(display_group)
 
 elapsed_t = 0
@@ -88,12 +88,13 @@ while True:
         cnt_scroll_pipeline = 0
 
     if cnt_scroll_message >= scroll_message_period/display_refresh_period:
-        get_a_message.scroll_text()
+        # get_a_message.scroll_text()
+        pipeline_status_watcher.scroll_commentary()
         cnt_scroll_message = 0
         
     if cnt_update >= update_period/display_refresh_period:
         pipeline_status_watcher.update()
-        get_a_message.update()
+        # get_a_message.update()
         cnt_update = 0
 
     cnt_scroll_pipeline += 1

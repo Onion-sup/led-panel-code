@@ -1,3 +1,4 @@
+import time
 import displayio
 import adafruit_display_text.label
 from adafruit_bitmap_font import bitmap_font
@@ -79,20 +80,28 @@ class PipelineStatusWatcher:
         self.branch_name_text.x = 0
         self.branch_name_text.y = 10
         self.jobs_lists = []
-        x = 0
-        y = 15
-        width = 64
-        height = 32-y-7
+        x_jobs_status_tile_grid = 0
+        y_jobs_status_tile_grid = 15
+        width_jobs_status_tile_grid = 64
+        height_jobs_status_tile_grid = 32-y_jobs_status_tile_grid-7
         self.display_width = 64
-        self.jobs_status_tile_grid = JobsStatusTileGrid(x, y, width, height, palette)
+        self.jobs_status_tile_grid = JobsStatusTileGrid(x_jobs_status_tile_grid, y_jobs_status_tile_grid, width_jobs_status_tile_grid, height_jobs_status_tile_grid, palette)
+        
+        self.commentary_text = adafruit_display_text.label.Label(
+            font,
+            color=0x00ff00,
+            text="null")
+        self.commentary_text.x = 0
+        self.commentary_text.y = 4 + y_jobs_status_tile_grid + height_jobs_status_tile_grid
 
         # Put each line of text into a Group, then show that group.
         pipeline_watcher_group = displayio.Group()
         pipeline_watcher_group.append(self.jobs_status_tile_grid.tile_grid)
         pipeline_watcher_group.append(self.repository_name_text)
         pipeline_watcher_group.append(self.branch_name_text)
+        pipeline_watcher_group.append(self.commentary_text)
         display_group.append(pipeline_watcher_group)
-    
+
     def scroll(self):
         # text_width = self.repository_name_text.bounding_box[2]
         # if text_width > self.display_width:
@@ -118,12 +127,14 @@ class PipelineStatusWatcher:
         try:
             response = requests.get(self.fetch_url)
             json_data = response.json()
-        except RuntimeError:
-            self.repository_name_text.text = 'Reset'
+        except RuntimeError as e:
+            self.repository_name_text.text = 'e: ' + str(e)
+            time.sleep(3)
             microcontroller.reset()
         print("[update] {} {}".format(response.status_code, json_data))
         response.close()
         self.repository_name_text.text = json_data['repository_name']
+        self.commentary_text.text = json_data['message']
         self.branch_name_text.text = json_data['branch_name'] + ' ' + str(self.cnt)
         self.jobs_lists = []
         for stage in json_data['stages'].values():
@@ -133,10 +144,19 @@ class PipelineStatusWatcher:
             self.repository_name_text.text = 'server'
             self.branch_name_text.text = 'did not update'
         self.prev_fetch_update_counter = json_data['update_counter']
-        
+
         self.jobs_status_tile_grid.clean_jobs(prev_jobs_lists)
         self.jobs_status_tile_grid.render(self.jobs_lists)
-
+    
+    def scroll_commentary(self):
+        text_width = self.commentary_text.bounding_box[2]
+        if text_width > self.display_width:
+            self.commentary_text.x = self.commentary_text.x - 1
+            if self.commentary_text.x < -text_width:
+                self.commentary_text.x = self.display_width
+        else:
+            self.commentary_text.x = 0
+            
 class JobsStatusTileGrid:
     def __init__(self, x, y, width, height, palette):
         self.width = width
@@ -183,7 +203,7 @@ class JobsStatusTileGrid:
     def scroll(self):
         if self.jobs_lists == None:
             return
-        self.clean_jobs(self.jobs_lists)        
+        self.clean_jobs(self.jobs_lists)
         width_jobs_x = max([(self.job_pellet_width + self.horiz_space) * len(jobs) for jobs in self.jobs_lists])
         width_jobs_y = (self.job_pellet_height + self.vert_space) * len(self.jobs_lists)
         if width_jobs_x > self.width:

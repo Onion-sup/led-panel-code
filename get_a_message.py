@@ -1,4 +1,5 @@
 from secrets import secrets
+import time
 import adafruit_display_text.label
 from adafruit_bitmap_font import bitmap_font
 import displayio
@@ -36,7 +37,9 @@ class GetAMessage:
         try:
             response = requests.get(self.fetch_url)
             self.message = response.text
-        except RuntimeError:
+        except RuntimeError as e:
+            self.text.text = 'e: ' + str(e)
+            time.sleep(3)
             microcontroller.reset()
         response.close()
         self.text.text = self.message
