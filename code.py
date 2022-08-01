@@ -24,7 +24,7 @@ from get_a_message import GetAMessage
 displayio.release_displays()
 
 matrix = rgbmatrix.RGBMatrix(
-    width=64, height=32, bit_depth=1,
+    width=128, height=64, bit_depth=1,
     rgb_pins=[
         board.MTX_R1,
         board.MTX_G1,
@@ -41,7 +41,8 @@ matrix = rgbmatrix.RGBMatrix(
     ],
     clock_pin=board.MTX_CLK,
     latch_pin=board.MTX_LAT,
-    output_enable_pin=board.MTX_OE
+    output_enable_pin=board.MTX_OE,
+    tile=2
     )
 # If you are using a board with pre-defined ESP32 Pins:
 esp32_cs = DigitalInOut(board.ESP_CS)
