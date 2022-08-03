@@ -19,7 +19,7 @@ import rgbmatrix
 import busio
 from pipeline_status_watcher import *
 from secrets import secrets
-from get_a_message import GetAMessage
+from meeting_reminder import MeetingReminder
 
 displayio.release_displays()
 
@@ -67,14 +67,14 @@ requests.set_socket(socket, esp)
 display = framebufferio.FramebufferDisplay(matrix)
 display_group = displayio.Group()
 pipeline_status_watcher = PipelineStatusWatcher(display_group)
-get_a_message = GetAMessage(display_group)
+meeting_reminder = MeetingReminder(display_group)
 display.show(display_group)
 
 elapsed_t = 0
 
 scroll_pipeline_period = 0.5
-scroll_message_period = 0.05
-update_period = 6
+scroll_message_period = 0.1
+update_period = 10
 display_refresh_period = 0.01
 
 cnt_scroll_pipeline = 0
@@ -88,12 +88,12 @@ while True:
         cnt_scroll_pipeline = 0
 
     if cnt_scroll_message >= scroll_message_period/display_refresh_period:
-        get_a_message.scroll_text()
+        meeting_reminder.scroll_text()
         cnt_scroll_message = 0
         
     if cnt_update >= update_period/display_refresh_period:
         pipeline_status_watcher.update()
-        get_a_message.update()
+        meeting_reminder.update()
         cnt_update = 0
 
     cnt_scroll_pipeline += 1

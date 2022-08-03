@@ -34,26 +34,7 @@ class PipelineStatusWatcher:
         self.prev_fetch_update_counter = -1
         # Initialize a requests object with a socket and esp32spi interface
         self.fetch_url = secrets['led_panel_service_host'] + "/api/gitlab-pipeline"
-
-        # JSON_GET_URL = "http://httpbin.org/get"
-
-        # # Define a custom header as a dict.
-        # headers = {"user-agent": "blinka/1.0.0"}
-
-        # print("Fetching JSON data from %s..." % JSON_GET_URL)
-        # response = requests.get(JSON_GET_URL, headers=headers)
-        # print("-" * 60)
-
-        # json_data = response.json()
-        # headers = json_data["headers"]
-        # print("Response's Custom User-Agent Header: {0}".format(headers["User-Agent"]))
-        # print("-" * 60)
-
-        # # Read Response's HTTP status code
-        # print("Response HTTP Status Code: ", response.status_code)
-        # print("-" * 60)
-        # response.close()
-
+        
         # Create a bitmap with two colors
         font = bitmap_font.load_font("tom-thumb.bdf")
 
